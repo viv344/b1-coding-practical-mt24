@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 from .terrain import generate_reference_and_limits
+from typing import Optional
 
 class Submarine:
     def __init__(self):
@@ -40,8 +41,14 @@ class Submarine:
         self.vel_y = 0
     
 class Trajectory:
-    def __init__(self, position: np.ndarray):
-        self.position = position  
+    """Container for simulated trajectory data.
+
+    position: Nx2 array of (x,y) positions
+    actions: optional length-N array of control actions applied
+    """
+    def __init__(self, position: np.ndarray, actions: Optional[np.ndarray] = None):
+        self.position = position
+        self.actions = actions
         
     def plot(self):
         plt.plot(self.position[:, 0], self.position[:, 1])
@@ -113,14 +120,29 @@ class ClosedLoop:
         positions = np.zeros((T, 2))
         actions = np.zeros(T)
         self.plant.reset_state()
+        # If controller has a reset method (e.g., to clear memory), call it
+        if hasattr(self.controller, "reset"):
+            try:
+                self.controller.reset()
+            except Exception:
+                pass
 
         for t in range(T):
             positions[t] = self.plant.get_position()
             observation_t = self.plant.get_depth()
-            # Call your controller here
+
+            # compute control action using controller callable
+            # controller is expected to accept (reference, observation) and return scalar action
+            try:
+                actions[t] = float(self.controller(mission.reference[t], observation_t))
+            except TypeError:
+                # If controller expects (reference, observation, t) or other signature, try fallback
+                actions[t] = float(self.controller(mission.reference[t], observation_t, t))
+
+            # step the plant using the computed action and the provided disturbance
             self.plant.transition(actions[t], disturbances[t])
 
-        return Trajectory(positions)
+        return Trajectory(positions, actions)
         
     def simulate_with_random_disturbances(self, mission: Mission, variance: float = 0.5) -> Trajectory:
         disturbances = np.random.normal(0, variance, len(mission.reference))
