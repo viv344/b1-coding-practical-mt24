@@ -75,8 +75,28 @@ class Mission:
 
     @classmethod
     def from_csv(cls, file_name: str):
-        # You are required to implement this method
-        pass
+        """
+        Create a Mission instance by loading data from a CSV file.
+
+        The CSV must contain columns: 'reference', 'cave_height', 'cave_depth'.
+        """
+        import os
+
+        if not os.path.exists(file_name):
+            raise FileNotFoundError(f"Mission CSV file not found: {file_name}")
+
+        import pandas as pd
+
+        df = pd.read_csv(file_name)
+        required = ("reference", "cave_height", "cave_depth")
+        if not all(col in df.columns for col in required):
+            raise ValueError(f"CSV must contain columns: {required}")
+
+        reference = df["reference"].to_numpy(dtype=float)
+        cave_height = df["cave_height"].to_numpy(dtype=float)
+        cave_depth = df["cave_depth"].to_numpy(dtype=float)
+
+        return cls(reference, cave_height, cave_depth)
 
 
 class ClosedLoop:
